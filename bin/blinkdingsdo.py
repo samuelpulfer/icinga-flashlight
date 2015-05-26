@@ -1,7 +1,7 @@
 #!/usr/bin/env python 
 # -*- coding: utf-8 -*-
 
-import sys, time, socket, logging
+import sys, time, socket, logging, signal
 import RPi.GPIO as GPIO
 from threading import Thread
 from daemon import Daemon
@@ -37,7 +37,13 @@ quit			Beendet die Verbindung.
 			elif data == 'blink_on':
 				# hier sollte das Blinken angeschaltet werden
 				mylog.info('blink_on von ' + addr[0] + ':' + str(addr[1]))
-				GPIO.output(8, GPIO.HIGH)
+				try:
+					GPIO.remove_event_detect(12)
+					GPIO.output(8, GPIO.HIGH)
+					time.sleep(2)
+					GPIO.add_event_detect(12, GPIO.FALLING, callback= switchoff2, bouncetime=200)
+				except Exception as e:
+					mylog.info(str(e))
 				reply = 'Blinklicht eingeschaltet\n'
 			elif data == 'blink_off':
 				# hier sollte das Blinklicht ausgeschaltet werden
@@ -57,7 +63,7 @@ quit			Beendet die Verbindung.
 			else:
 				reply = 'Sie chönts afacht nöd\n'
 			conn.sendall(reply)
-		mylog.info('Disconnected with ' + addr[0] + ':' + str(addr[1]))
+		mylog.warning('Disconnected with ' + addr[0] + ':' + str(addr[1]))
 		conn.close()
 
 	def alert(x):
@@ -72,6 +78,16 @@ quit			Beendet die Verbindung.
 			mylog.info('Switch betaetigt')
 			GPIO.output(8, GPIO.LOW)
 
+	def switchoff2(channel):
+		mylog.info('Switch betaetigt')
+		GPIO.output(8, GPIO.LOW)
+		
+			
+	def handler(signum, frame):
+		mylog.info("Ende Log")
+		logging.shutdown()
+		sys.exit(1)
+
 	mylog.info('Beginn initialisierung')
 	# RPi.GPIO Layout verwenden (wie Pin-Nummern)
 	GPIO.setmode(GPIO.BOARD)
@@ -85,11 +101,7 @@ quit			Beendet die Verbindung.
 	GPIO.output(10, GPIO.LOW)
 	mylog.info('Initialisierung abgeschlossen')
 	
-	#k = Thread(target=blink, args=(1,))
-	#k.start()
-	#l = Thread(target=switchoff, args=(1,))
-	#l.start()
-
+	#signal.signal(signal.SIGTERM, handler)
 	s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 	mylog.info('Socket created')
 
@@ -97,7 +109,7 @@ quit			Beendet die Verbindung.
 	try:
 		s.bind((HOST, PORT))
 	except socket.error as msg:
-		mylog.info('Bind failed. Error Code : ' + str(msg[0]) + ' Message ' + msg[1])
+		mylog.error('Bind failed. Error Code : ' + str(msg[0]) + ' Message ' + msg[1])
 		sys.exit()
 	mylog.info('Socket bind complete')
 
@@ -105,8 +117,9 @@ quit			Beendet die Verbindung.
 	s.listen(10)
 	mylog.info('Socket now listening')
 	
-	thread01 = Thread(target=switchoff, args=(1,))
-	thread01.start()
+	#thread01 = Thread(target=switchoff, args=(1,))
+	#thread01.start()
+	GPIO.add_event_detect(12, GPIO.FALLING, callback= switchoff2, bouncetime=200)
 		
 	# Loop
 	while True:
