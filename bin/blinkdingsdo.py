@@ -84,9 +84,20 @@ quit			Beendet die Verbindung.
 		
 			
 	def handler(signum, frame):
+		mylog.info('Programm wird beendet')
+		try:
+			s.close()
+			mylog.info('Socket geschlossen')
+			GPIO.remove_event_detect(12)
+			GPIO.output(8, GPIO.LOW)
+			GPIO.output(10, GPIO.LOW)
+			mylog.info('GPIOs zurueckgesetzt')
+		except Exception as e:
+			mylog.info(str(e))
 		mylog.info("Ende Log")
 		logging.shutdown()
-		sys.exit(1)
+		self.delpid()
+		sys.exit(0)
 
 	mylog.info('Beginn initialisierung')
 	# RPi.GPIO Layout verwenden (wie Pin-Nummern)
@@ -102,6 +113,9 @@ quit			Beendet die Verbindung.
 	mylog.info('Initialisierung abgeschlossen')
 	
 	#signal.signal(signal.SIGTERM, handler)
+	for sig in [signal.SIGTERM, signal.SIGINT, signal.SIGHUP, signal.SIGQUIT]:
+		signal.signal(sig, handler)
+
 	s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 	mylog.info('Socket created')
 
@@ -129,8 +143,6 @@ quit			Beendet die Verbindung.
 		#start new thread takes 1st argument as a function name to be run, second is the tuple of arguments to the function.
 		x1 = Thread(target=clientthread, args=(conn, addr,))
 		x1.start()
-	s.close()
-	mylog.info("Ende Log")
 
 
 #########################################################################
